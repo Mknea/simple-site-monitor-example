@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "harjoitus"
+name = "simple site monitor"
 version = "0.1.0"
 description = ""
-authors = ["Your Name <you@example.com>"]
+authors = ["Aleksi Mäkinen <aleksimatias.makinen@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
