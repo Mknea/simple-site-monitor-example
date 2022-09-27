@@ -1,0 +1,21 @@
+{
+    "interval": 5,
+    "targets": [
+        {
+            "url": "http://www.google.com",
+            "req": ["Google"]
+        },
+        {
+            "url": "http://xkcd.com/1513",
+            "req": ["CODE QUALITY", "xkcd"]
+        },
+        {
+            "url": "http://xkcd.com/",
+            "req": ["xkcd"]
+        },
+        {
+            "url": "http://localhost",
+            "req": []
+        }
+    ]
+}
