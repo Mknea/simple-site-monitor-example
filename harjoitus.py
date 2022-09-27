@@ -18,6 +18,7 @@ LOG_DB_TABLE_NAME = "monitoring_logs"
 
 MONITORING_SERVER_DEFAULT_PORT = 5000
 
+
 @dataclass(frozen=True)
 class Target:
     url: str
@@ -48,7 +49,7 @@ async def init_log_db():
                     status TEXT NOT NULL,
                     details TEXT NOT NULL
                 );"""
-                # Allow duration to be null when content is parsed
+            # Allow duration to be null when content is parsed
         )
         await db.commit()
 
@@ -58,18 +59,19 @@ async def write_log_db_entry(
     status: LogStatus,
     duration: Optional[int],
     details: str = "",
-    timestamp: Optional[datetime] = None
+    timestamp: Optional[datetime] = None,
 ):
     if not timestamp:
         timestamp = datetime.now()
     print(timestamp, url, status, details)
     # FIXME: Would probably be more efficient to wrap this in class and reuse same conn
     async with aiosqlite.connect(LOG_DB_FILE_PATH) as db:
-        await db.execute(f"""INSERT INTO '{LOG_DB_TABLE_NAME}'
+        await db.execute(
+            f"""INSERT INTO '{LOG_DB_TABLE_NAME}'
                 ('timestamp', 'url', 'duration', 'status', 'details')
                 VALUES (?, ?, ?, ?, ?);
             """,
-            (timestamp, url, duration, status, details)
+            (timestamp, url, duration, status, details),
         )
         await db.commit()
 
@@ -77,7 +79,7 @@ async def write_log_db_entry(
 async def read_monitored_urls() -> List[str]:
     async with aiosqlite.connect(LOG_DB_FILE_PATH) as db:
         async with db.execute(f"SELECT DISTINCT(url) FROM {LOG_DB_TABLE_NAME}") as cur:
-            return [ x[0] for x in await cur.fetchall()]
+            return [x[0] for x in await cur.fetchall()]
 
 
 @dataclass
@@ -88,17 +90,20 @@ class MonitoringDetails:
     details: str
 
 
-async def get_monitoring_data(urls: List[str]) -> Dict[str, Optional[MonitoringDetails]]:
+async def get_monitoring_data(
+    urls: List[str],
+) -> Dict[str, Optional[MonitoringDetails]]:
     data: Dict[str, Optional[MonitoringDetails]] = {}
-    
+
     async with aiosqlite.connect(LOG_DB_FILE_PATH) as db:
         db.row_factory = aiosqlite.Row
         for url in urls:
-            async with db.execute(f"""SELECT * FROM {LOG_DB_TABLE_NAME}
+            async with db.execute(
+                f"""SELECT * FROM {LOG_DB_TABLE_NAME}
                 WHERE url=? AND duration IS NOT NULL
                 ORDER BY timestamp
                 DESC LIMIT 1;""",
-                (url,)
+                (url,),
             ) as cur:
                 latest_request_row = await cur.fetchone()
             if not latest_request_row:
@@ -108,13 +113,14 @@ async def get_monitoring_data(urls: List[str]) -> Dict[str, Optional[MonitoringD
                 timestamp=latest_request_row["timestamp"],
                 duration=latest_request_row["duration"],
                 status=latest_request_row["status"],
-                details=latest_request_row["details"]
+                details=latest_request_row["details"],
             )
-            async with db.execute(f"""SELECT * FROM {LOG_DB_TABLE_NAME}
+            async with db.execute(
+                f"""SELECT * FROM {LOG_DB_TABLE_NAME}
                 WHERE url=? AND duration IS NULL AND timestamp > ?
                 ORDER BY timestamp
                 DESC LIMIT 1;""",
-                (url, details.timestamp)
+                (url, details.timestamp),
             ) as cur:
                 latest_content_validation_row = await cur.fetchone()
             if latest_content_validation_row:
@@ -125,7 +131,7 @@ async def get_monitoring_data(urls: List[str]) -> Dict[str, Optional[MonitoringD
 
 
 def read_config(path: str) -> dict:
-    file_path = DEFAULT_CONFIG_PATH if not path else path
+    file_path: Path | str = DEFAULT_CONFIG_PATH if not path else path
     with open(file_path, mode="r") as file:
         return json.load(file)
 
@@ -159,7 +165,9 @@ async def on_request_start(session, trace_config_ctx, params):
     trace_config_ctx.request_start = asyncio.get_event_loop().time()
 
 
-async def on_request_end(session, trace_config_ctx, params: aiohttp.TraceRequestEndParams):
+async def on_request_end(
+    session, trace_config_ctx, params: aiohttp.TraceRequestEndParams
+):
     elapsed_time = round(
         (asyncio.get_event_loop().time() - trace_config_ctx.request_start) * 1000
     )
@@ -169,7 +177,10 @@ async def on_request_end(session, trace_config_ctx, params: aiohttp.TraceRequest
         duration=elapsed_time,
     )
 
-async def on_request_exception(session, trace_config_ctx, params: aiohttp.TraceRequestExceptionParams):
+
+async def on_request_exception(
+    session, trace_config_ctx, params: aiohttp.TraceRequestExceptionParams
+):
     elapsed_time = round(
         (asyncio.get_event_loop().time() - trace_config_ctx.request_start) * 1000
     )
@@ -177,7 +188,7 @@ async def on_request_exception(session, trace_config_ctx, params: aiohttp.TraceR
         url=trace_config_ctx.trace_request_ctx["url"],
         status=LogStatus.CONN_NOK,
         duration=elapsed_time,
-        details=str(params.exception)
+        details=str(params.exception),
     )
 
 
@@ -194,7 +205,7 @@ async def get_response_text(session: aiohttp.ClientSession, url: str) -> Optiona
         async with session.get(url, trace_request_ctx={"url": url}) as response:
             response.raise_for_status()
             return await response.text()
-    except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+    except (aiohttp.ClientError, asyncio.TimeoutError):
         return None
 
 
@@ -212,7 +223,7 @@ async def get_and_validate_content(
                     url=url,
                     status=LogStatus.CONTENT_NOK,
                     duration=None,
-                    details=f"{expected_text} not found response content"
+                    details=f"{expected_text} not found response content",
                 )
                 return
         await write_log_db_entry(
@@ -237,11 +248,10 @@ async def monitor(config: Config):
                 ]
             )
             print("---------------")
-            print(await read_monitored_urls())
             await asyncio.sleep(config.interval)
 
 
-app = Quart(__name__, template_folder='templates')
+app = Quart(__name__, template_folder="templates")
 
 
 @app.before_serving
@@ -264,7 +274,7 @@ async def get_monitoring_page():
         await asyncio.sleep(app.config["monitoring_config"].interval)
         urls = await read_monitored_urls()
     data = await get_monitoring_data(urls)
-    return await render_template('index.html', monitored_items=data)
+    return await render_template("index.html", monitored_items=data)
 
 
 if __name__ == "__main__":
@@ -295,4 +305,3 @@ if __name__ == "__main__":
     config = parse_config(args.interval, config)
     app.config["monitoring_config"] = config
     app.run(port=args.port)
-    
