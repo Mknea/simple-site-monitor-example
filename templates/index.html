@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Monitoring POC</title>
+    <meta charset="UTF-8" />
+    <meta http-equiv="refresh" content="10" />
+    <style>
+      table {
+        font-family: arial, sans-serif;
+        border-collapse: collapse;
+        width: 100%;
+      }
+
+      td, th {
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 8px;
+      }
+
+      tr:nth-child(even) {
+        background-color: #dddddd;
+      }
+      .OK {
+        background: #67a867 !important
+      }
+      .NOK {
+        background:#C08081 !important
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <table>
+        <tr>
+          <th>URL</th>
+          <th>Timestamp</th>
+          <th>Response time (ms)</th>
+          <th>Status</th>
+          <th>Details</th>
+        </tr>
+        {% for url, details in monitored_items.items() %}
+        <tr>
+          <td><a href="{{ url }}" target="_blank">{{ url }}</a></td>
+          {% if details %}
+              <td>{{details.timestamp}}</td>
+              <td>{{details.duration}}</td>
+              <td class="{% if 'NOK' in details.status %} NOK {% elif 'OK' in details.status %} OK {% endif %}">{{details.status}}</td>
+              <td>{{details.details}}</td>
+          {% else %}
+            <tr><td>No data found</td><tr>
+          {% endif %}
+        </tr>
+        {% else %}
+        <p>No data available</p>
+        {% endfor %}
+      </table>
+    </main>
+  </body>
+</html>

@@ -1,13 +1,11 @@
 import argparse
 import asyncio
 import json
-import signal
-import threading
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional, cast
+from typing import Dict, List, Optional, cast
 
 import aiohttp
 import aiosqlite
@@ -82,10 +80,48 @@ async def read_monitored_urls() -> List[str]:
             return [ x[0] for x in await cur.fetchall()]
 
 
-# async def get_monitoring_data(urls: List[str]):
-#     async with aiosqlite.connect(LOG_DB_FILE_PATH) as db:
-#         async with db.execute(f"SELECT DISTINCT(url) FROM {LOG_DB_TABLE_NAME}") as cur:
-#             return [ x[0] for x in await cur.fetchall()]
+@dataclass
+class MonitoringDetails:
+    timestamp: datetime
+    duration: int
+    status: LogStatus
+    details: str
+
+
+async def get_monitoring_data(urls: List[str]) -> Dict[str, Optional[MonitoringDetails]]:
+    data: Dict[str, Optional[MonitoringDetails]] = {}
+    
+    async with aiosqlite.connect(LOG_DB_FILE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        for url in urls:
+            async with db.execute(f"""SELECT * FROM {LOG_DB_TABLE_NAME}
+                WHERE url=? AND duration IS NOT NULL
+                ORDER BY timestamp
+                DESC LIMIT 1;""",
+                (url,)
+            ) as cur:
+                latest_request_row = await cur.fetchone()
+            if not latest_request_row:
+                data[url] = None
+                continue
+            details = MonitoringDetails(
+                timestamp=latest_request_row["timestamp"],
+                duration=latest_request_row["duration"],
+                status=latest_request_row["status"],
+                details=latest_request_row["details"]
+            )
+            async with db.execute(f"""SELECT * FROM {LOG_DB_TABLE_NAME}
+                WHERE url=? AND duration IS NULL AND timestamp > ?
+                ORDER BY timestamp
+                DESC LIMIT 1;""",
+                (url, details.timestamp)
+            ) as cur:
+                latest_content_validation_row = await cur.fetchone()
+            if latest_content_validation_row:
+                details.status = latest_content_validation_row["status"]
+                details.details = latest_content_validation_row["details"]
+            data[url] = details
+    return data
 
 
 def read_config(path: str) -> dict:
@@ -205,7 +241,7 @@ async def monitor(config: Config):
             await asyncio.sleep(config.interval)
 
 
-app = Quart(__name__)
+app = Quart(__name__, template_folder='templates')
 
 
 @app.before_serving
@@ -224,12 +260,11 @@ async def shutdown():
 async def get_monitoring_page():
     urls = await read_monitored_urls()
     if not urls:
-        # Probably possible have problems if DB empty on fresh start
+        # Probably possible to have problems if immediately accessed when DB empty on fresh start
         await asyncio.sleep(app.config["monitoring_config"].interval)
         urls = await read_monitored_urls()
-    #for url in urls:
-        
-    return {"urls": urls}
+    data = await get_monitoring_data(urls)
+    return await render_template('index.html', monitored_items=data)
 
 
 if __name__ == "__main__":
