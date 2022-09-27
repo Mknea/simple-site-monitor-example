@@ -175,7 +175,7 @@ async def on_request_exception(session, trace_config_ctx, params: aiohttp.TraceR
     )
     await write_log_db_entry(
         url=trace_config_ctx.trace_request_ctx["url"],
-        status=LogStatus.CONN_OK,
+        status=LogStatus.CONN_NOK,
         duration=elapsed_time,
         details=str(params.exception)
     )
