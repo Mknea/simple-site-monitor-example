@@ -1,8 +1,8 @@
-# Site monitor
+# Simple site monitor example
 
 This program monitors given web pages (HTTP URLs) responses and corresponding page content requirements from a configuration file.
 
-Based period set in configuration file (or commandline option) the program will send GET request asynchronously to all of the given URLs. The results are written to a produced log file (sqlite DB file). The program also implements simple HTTP server interface in the same process for showing the status of each monitored web site.
+Based on period set in the configuration file (or through a commandline option) the program will send GET request asynchronously to all of the given URLs. The results are written to a produced log file (sqlite DB file). The program also implements simple HTTP server interface in the same process for showing the status of each monitored web site.
 
 ## Requirements
 
@@ -10,7 +10,7 @@ Developed with Python 3.10.0, other versions not tested.
 
 ## Installation
 
-Install Python. Navigate to the scrip's directory in terminal.
+Install Python. Navigate to the startup script's (`run_monitor.py`) directory in terminal.
 
 To install dependencies:
 If using Poetry, run:
@@ -54,18 +54,18 @@ The expected configuration file format is `json`, e.g. `config.json` in the fold
 After installing Python, the requirements and creating the configuration file, simply run:
 
 ```bash
-python harjoitus.py
+python run_monitor.py
 ```
 
 For full list of accepted arguments, run:
 ```bash
-python harjoitus.py -h
+python run_monitor.py -h
 ```
 
 The program should execute and you should see something like the following:
 ```bash
-> python harjoitus.py                              
- * Serving Quart app 'harjoitus'
+> python run_monitor.py                              
+ * Serving Quart app 'src.monitor_app'
  * Environment: production
  * Please use an ASGI server (e.g. Hypercorn) directly in production
  * Debug mode: False
